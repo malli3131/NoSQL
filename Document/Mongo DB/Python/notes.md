@@ -2,52 +2,16 @@
 
 ```python
 import pymongo as pm
-```
+from bson.code import Code
 
-
-```python
 mongo = pm.MongoClient("mongodb://localhost:27017")
-```
-
-
-```python
 database = mongo.get_database("nyse")
-```
-
-
-```python
 col = database.get_collection("stocks")
-```
-
-
-```python
 print database.name
-```
-
-    nyse
-
-
-
-```python
 print col.name
-```
-
-    stocks
-
-
-
-```python
 file = "/Users/nagainelu/bigdata/jobs/stocks"
-```
-
-
-```python
 fr = open(file, 'r')
 data = fr.readlines()
-```
-
-
-```python
 i = 0
 for line in data:
     cols = line.split("\t")
@@ -66,22 +30,19 @@ for line in data:
         document['volume'] = int(cols[7])
         document['adj_close'] = float(cols[8])
         col.insert_one(document)
-```
-
-
-```python
+# Aggregations using aggregate
 cursor = database.stocks.aggregate([{"$group":{"_id":"$stock", "aggvolume":{"$sum":"$volume"}}}])
-```
-
-
-```python
 fw = open("/Users/nagainelu/bigdata/jobs/aggvolume", "w")
 for line in cursor:
     record = line.get("_id") + "\t" + str(line.get("aggvolume")) + "\n"
     fw.write(record)
-```
+# Aggregations using mapreduce
+map = Code("""function(){emit(this.stock, this.volume)}""")
+reduce = Code("""function(key, values) { var total = 0; for(var i = 0; i < values.length; i++){ total += values[i]} return total }""")
+result = database.stocks.map_reduce(map, reduce, "myresults")
 
-
-```python
-
+# Reading data from myresults collection
+records = database.get_collection("myresults").find().sort([('value', pm.ASCENDING)])
+for record in records:
+    print record
 ```
